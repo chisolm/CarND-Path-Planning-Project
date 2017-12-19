@@ -4,13 +4,14 @@ Self-Driving Car Engineer Nanodegree Program
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
-### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
+---
 
-#### The map of the highway is in data/highway_map.txt
-Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
+[//]: # (Image References)
 
-The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554.
+[image1]: ./writeup_images/50milerun.png "Long run with no incidence"
+[image2]: ./writeup_images/partial_track.png "Show multiple tracks"
+[image3]: ./writeup_images/best_particle_weight.png "Best particle weight"
+[image4]: ./writeup_images/avg_distance.png "Obs to Landmark associated distance"
 
 ## Basic Build Instructions
 
@@ -19,122 +20,179 @@ The highway's waypoints loop around so the frenet s value, distance along the ro
 3. Compile: `cmake .. && make`
 4. Run it: `./path_planning`.
 
-Here is the data provided from the Simulator to the C++ Program
+### Attribution
 
-#### Main car's localization Data (No Noise)
+Portions of the code are from my class room exercises from the udacity class on self driving cars, behavior planning section and path planning walk-through.
+The infrastructure code in this project is supplied from project repository listed above.
 
-["x"] The car's x position in map coordinates
+# Rubric Points
 
-["y"] The car's y position in map coordinates
+## Code Compilation
 
-["s"] The car's s position in frenet coordinates
+The code compiles cleanly with the existing cmake structure.
 
-["d"] The car's d position in frenet coordinates
+## 4.32 miles driven with no incidents
 
-["yaw"] The car's yaw angle in the map
+The car will very easily drive 4.32 miles without incidents.  I have let  
+it run for about an hour and achieved a 51.55 mile run.  It does still have problems that are likely related to the wrapping of the s values at a full
+track length.  It appears to have trouble less than 1 out of 5-10 laps.
 
-["speed"] The car's speed in MPH
+![alt text][image1]
 
-#### Previous path data given to the Planner
+## Speed limit
 
-//Note: Return the previous list but with processed points removed, can be a nice tool to show how far along
-the path has processed since last time. 
+The cars drives a target speed of 49.5 miles per hour unless there is a car ahead of
+it blocking forward progress.
 
-["previous_path_x"] The previous list of x points previously given to the simulator
+My implementation of speed control is not in the behavior state machine.  It is
+still implemented as a direct control(reduction) of speed on sensing an obstacle.
 
-["previous_path_y"] The previous list of y points previously given to the simulator
+## Max acceleration and Jerk
 
-#### Previous path's end s and d values 
+Max acceleration and jerk are never exceeded.  This is controlled by use of the
+remaining points from previous path x and splines to continue the trajectory 
+generation to next waypoints in the current lane or a lane change.
 
-["end_path_s"] The previous list's last point's frenet s value
+## Car does not have collisions
 
-["end_path_d"] The previous list's last point's frenet d value
+My car does not collide with other vehicles.
 
-#### Sensor Fusion Data, a list of all other car's attributes on the same side of the road. (No Noise)
+## Lane maintenance and lane transition
 
-["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
+My car maintains it's lane unless it is executing a lane change.  Lane change
+manuevers are maintained as a decision by a state in the state machine that 
+continues a lane change through the end of its trajectory.  
 
-## Details
+My lane change decisions are via a cost model to transition to the lowest
+cost lane.  This additional state avoids the problem of very close costs
+causing multiple lane change (re)-decisions during a lane change maneuver
+which can cause the car to exceed the 3 second lane change requirement.
 
-1. The car uses a perfect controller and will visit every (x,y) point it recieves in the list every .02 seconds. The units for the (x,y) points are in meters and the spacing of the points determines the speed of the car. The vector going from a point to the next point in the list dictates the angle of the car. Acceleration both in the tangential and normal directions is measured along with the jerk, the rate of change of total Acceleration. The (x,y) point paths that the planner recieves should not have a total acceleration that goes over 10 m/s^2, also the jerk should not go over 50 m/s^3. (NOTE: As this is BETA, these requirements might change. Also currently jerk is over a .02 second interval, it would probably be better to average total acceleration over 1 second and measure jerk from that.
+## Ability to change lanes
 
-2. There will be some latency between the simulator running and the path planner returning a path, with optimized code usually its not very long maybe just 1-3 time steps. During this delay the simulator will continue using points that it was last given, because of this its a good idea to store the last points you have used so you can have a smooth transition. previous_path_x, and previous_path_y can be helpful for this transition since they show the last points given to the simulator controller with the processed points already removed. You would either return a path that extends this previous path or make sure to create a new path that has a smooth transition with this last path.
+My car evaluates the costs of lane change maneuvers every cycle and will 
+changes lanes as the cost dictates.
 
-## Tips
+# Reflection
 
-A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
+### Code files
 
----
+This is a short summary of what is in each *.cpp* file.  Discussion of the model and features will continue below:
 
-## Dependencies
+main.cpp:  This file is the main JSON interface loop with the simulator.  It
+also still contains the speed control for my vehicle with the ref_vel variable
+and updates to the ego information in the road object.
 
-* cmake >= 3.5
- * All OSes: [click here for installation instructions](https://cmake.org/install/)
-* make >= 4.1
-  * Linux: make is installed by default on most Linux distros
-  * Mac: [install Xcode command line tools to get make](https://developer.apple.com/xcode/features/)
-  * Windows: [Click here for installation instructions](http://gnuwin32.sourceforge.net/packages/make.htm)
-* gcc/g++ >= 5.4
-  * Linux: gcc / g++ is installed by default on most Linux distros
-  * Mac: same deal as make - [install Xcode command line tools]((https://developer.apple.com/xcode/features/)
-  * Windows: recommend using [MinGW](http://www.mingw.org/)
-* [uWebSockets](https://github.com/uWebSockets/uWebSockets)
-  * Run either `install-mac.sh` or `install-ubuntu.sh`.
-  * If you install from source, checkout to commit `e94b6e1`, i.e.
-    ```
-    git clone https://github.com/uWebSockets/uWebSockets 
-    cd uWebSockets
-    git checkout e94b6e1
-    ```
+helper.cpp:  This file contains all of the utility functions that were in the 
+main.cpp file in the project repository.
 
-## Editor Settings
+trajectory.cpp:  This contains the method definitions for the trajectory
+objects. It contains 2 methods for trajectory generation.  One for the ego 
+car and another much simpler method for trajectory generation of the 
+other cars on the road.
 
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
+behavior.cpp:  This contains the behavior state machine and the cost functions 
+that are used to evaluate the choice of the next state.
 
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
+road.cpp:  This implements a singleton object for the road that keeps the map 
+informatino, the ego information for my car and sensor for all the vehicles 
+reported by the sensor fusion information.  It also contains a print method
+that is very useful for debug, displaying the road, ego information and all
+known cars.
 
-## Code Style
+vehicle.cpp:  This implements a simple object to keep track of traffic vehicles
+reported by sensor fusion.
 
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
+### Behavior Model
 
-## Project Instructions and Rubric
+My behavior model centers around a state machine similar to the lane change 
+state machine in the lessons.  I only use 3 primary states, "KL", "LCL" and
+"LCR".  I also implement a lane change maneuver "LCM" state that has 
+constrained entry from the lane change states.
 
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
+I generate a single trajectory for each state and evaluate the costs of 
+each for the next state choice.
+
+The lane change maneuver state("LCM") was my solution to the problem of not
+consistently choosing a lane change when the costs for keep lane and lane
+change are nearly equal.  In prior versions my model, when costs were nearly
+equal, would switch back and forth between lane change and keep lane.  This  
+would lead to violations of the 3 second lane change requirement.  This is of
+course of side effect of:
+- continuing to use the existing path points in the trajectory(delaying lane change) 
+- lack of another method to retain intent between behavior runs 
+- the scoring method which evaluates the lane on the d value and will produce the same nearly equal cost values until the centerline is crossed.
+
+This LCM state does retain the intent of changing lanes by fixing the desired lane for a period of time and constraining the next states while in LCM.
+
+### Behavior state costs
+
+To choose states in the behavior state machine I evaluate the costs for the 
+given trajectory for each state with the following cost functions:
+
+```
+struct cost_functions {
+  string name;
+  function<double(Road, Trajectory, map<int, Trajectory>)> cf;
+  double weight;
+};
+
+//Add additional cost functions here.
+vector<cost_functions> const ncf_list = {
+  {{"lane free"}, lane_most_free_ahead_cost, LANE_FREE_COST},
+  {{"lane avail"}, available_slot, LANE_AVAIL_COST},
+  {{"lane change"}, lane_change_cost, LANE_CHANGE_COST}
+};
+```
+
+The lane_most_free_ahead_cost() function simply assigns a cost based on the 
+closest vehicle in front of us.  It ends up giving a low or 0 cost to the 
+lane with the most room to make forward progress.
+
+The available_slot() evaluates the gap to make a lane change with a larger  
+gap getting a smaller cost.  This is the cost function with the most potential
+for improvement.  It uses a very large gap currently, leading to difficulty  
+getting around a slow vehicle in heavy traffic.  It could use a significantly
+smaller gap if it evaluated the trajectory of the surrounding cars for a 
+crossing of the s values at any point in time in their trajectories.  The  
+information was available, but limited was my time to implement it.
+
+The lane_change_cost() is a small cost (relatively) to reduce the indecision  
+on lane changes.  It does not completely eliminate it since the ego's 
+evaluation of its lane location does not change until it crosses the mid-point
+in the dividers.
+
+### Trajectory generation
+
+I used the trajectory generation from the walk through with the spline library.
+
+The trajectory for the ego car is generated by taking the unused previous trajectory from the simulator and adding additional points to it based on the
+spline waypoints.  Control for this trajectory is primarily via the supplied
+desired lane for the trajectory and with velocity supplied(ref_vel).  The  
+speed changes could be significantly improved by adding a current velocity 
+and a desired velocity variables as seperate entities and generating velocity 
+changes for each of the new trajectory points.
+
+### Road object
+
+In my implementation, this is primarily a container object to track the current 
+state of the vehicle and surrounding cars.
+
+The ego car position information could be moved out of there from a software 
+engineering perspective.
+
+From a path planning perspective, there is little going on in this object.
+
+### Simulator improvement
+
+As an assignment, this project would help by a simple change to the simulator.  If the collision information or acceleration and jerk information could be
+passed back as part of the telemetry it would aid the debug process hugely.  I
+think currently have a bug in my code that causes problems every 5-10 laps.  I
+don't have a very useful way to debug that problem except for sitting and
+watching the simulation.  At 25-50 minutes per cycle, that is just not
+practical.  If the simulator supplied that information, I could log it and 
+analyze the problem.
 
 
-## Call for IDE Profiles Pull Requests
 
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
 
